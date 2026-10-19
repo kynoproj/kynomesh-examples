@@ -4,12 +4,6 @@ Nothing here names a worker: it asks Kynomesh who the peers are, then asks each
 peer who it is. The peer list and cached cards are fixed for the life of the
 process, so a changed AgentSet takes effect when Kynomesh restarts the pod (on a
 topology change, or on AgentCard drift when `driftReload` is enabled).
-
-Each peer is also warmed with `client.peer_client`. That records the peer's card
-hash, which is what `driftReload` compares against: a peer this process never
-built a client for is "unknown" to drift detection, not "drifted". The a2a
-`Client` does not expose its card, so the card itself comes from
-`resolve_agent_card`.
 """
 
 from __future__ import annotations
