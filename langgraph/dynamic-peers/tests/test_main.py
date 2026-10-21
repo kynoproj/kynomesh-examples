@@ -64,3 +64,14 @@ def test_unknown_role_rejected(monkeypatch):
     monkeypatch.setattr(sys, "argv", ["travel", "--role", "pilot"])
     with pytest.raises(SystemExit):
         main.main()
+
+
+async def test_unreachable_worker_stops_startup_instead_of_serving_without_it(monkeypatch):
+    from travel.discovery import PeerUnreachableError
+
+    monkeypatch.setattr(
+        main, "discover_workers", AsyncMock(side_effect=PeerUnreachableError("peer 'hotels' unreachable"))
+    )
+
+    with pytest.raises(PeerUnreachableError):  # the container exits, so Kubernetes restarts the pod
+        await main.build_supervisor_agent()

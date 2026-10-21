@@ -5,11 +5,11 @@ peer who it is. The peer list and cached cards are fixed for the life of the
 process, so a changed AgentSet takes effect when Kynomesh restarts the pod (on a
 topology change, or on AgentCard drift when `driftReload` is enabled).
 
-All agents in an AgentSet start at the same time, so a worker is often not up yet
-when the supervisor starts looking for it. Discovery therefore retries every peer
-at once, for up to `STARTUP_BUDGET` seconds, and returns as soon as every peer has
-answered. The budget has to stay well under the pod's startup-probe window: until
-discovery returns, the supervisor is not serving and the pod is not yet ready.
+Every agent in an AgentSet starts at the same time, so a worker may not be up yet
+when the supervisor looks for it. Each peer is retried for about a minute. If one
+is still unreachable, discovery raises: the container exits and Kubernetes
+restarts the pod, which tries again. The wait stays inside the container's startup
+window, because the supervisor does not serve until discovery returns.
 
 Each peer is also warmed with `client.peer_client`. That records the peer's card
 hash, which is what `driftReload` compares against: a peer this process never built
@@ -29,10 +29,12 @@ from kynomesh import client
 
 _logger = logging.getLogger(__name__)
 
-# The agent container's startup probe allows roughly 150s (estimated: 5s period, 30
-# failures), and nothing is served until discovery returns. Stay well under that.
-STARTUP_BUDGET = 60.0  # seconds to wait for every peer, in total
-RETRY_INTERVAL = 2.0  # seconds between attempts at one peer
+ATTEMPTS = 12  # tries per peer
+DELAY = 5.0  # seconds between tries, so a peer gets about a minute
+
+
+class PeerUnreachableError(RuntimeError):
+    """A peer could not be reached within the retry budget."""
 
 
 @dataclass(frozen=True)
@@ -55,47 +57,31 @@ async def discover_workers(
     list_peers: Callable[[], list[str]] = client.peers,
     resolve_card: Callable[[str], Awaitable[AgentCard]] = client.resolve_agent_card,
     warm_client: Callable[[str], Awaitable[object]] = client.peer_client,
-    budget: float = STARTUP_BUDGET,
-    interval: float = RETRY_INTERVAL,
+    attempts: int = ATTEMPTS,
+    delay: float = DELAY,
 ) -> tuple[WorkerInfo, ...]:
-    """Return every reachable peer as a WorkerInfo, sorted by name.
+    """Return every peer as a WorkerInfo, sorted by name.
 
-    Peers are retried concurrently until each answers or `budget` seconds pass, so
-    the wait is the slowest worker's start time, not the sum of all of them, and
-    it is zero extra when every worker is already up. A peer that is still
-    unreachable when the budget runs out is logged and skipped, so one dead worker
-    cannot keep the supervisor from starting.
+    Raises PeerUnreachableError if a peer still cannot be reached after
+    `attempts` tries, so the pod restarts instead of serving without that worker.
     """
-    deadline = asyncio.get_running_loop().time() + budget
-    names = sorted(list_peers())
-    cards = await asyncio.gather(
-        *(_resolve_until(name, warm_client, resolve_card, deadline, interval) for name in names)
-    )
-    return tuple(worker_from_card(n, c) for n, c in zip(names, cards) if c is not None)
+    workers: list[WorkerInfo] = []
+    for name in sorted(list_peers()):
+        card = await _resolve_with_retry(name, warm_client, resolve_card, attempts, delay)
+        workers.append(worker_from_card(name, card))
+    return tuple(workers)
 
 
-async def _resolve_until(name, warm_client, resolve_card, deadline: float, interval: float):
-    """Try to reach `name` until `deadline`; return its card, or None if it never answered."""
-    loop = asyncio.get_running_loop()
-
-    async def attempt() -> AgentCard:
-        await warm_client(name)
-        return await resolve_card(name)
-
-    attempts = 0
-    while True:
-        attempts += 1
+async def _resolve_with_retry(name, warm_client, resolve_card, attempts: int, delay: float) -> AgentCard:
+    for attempt in range(1, attempts + 1):
         try:
-            # Bound the attempt too: a hung connection must not outlast the budget.
-            return await asyncio.wait_for(attempt(), timeout=max(deadline - loop.time(), 0.001))
+            await warm_client(name)
+            return await resolve_card(name)
         except Exception as e:
-            if deadline - loop.time() <= interval:
-                _logger.error(
-                    "skipping peer %r: still unreachable after %d attempts", name, attempts, exc_info=True
-                )
-                return None
-            # One line per attempt; the traceback is saved for the final failure.
+            if attempt == attempts:
+                raise PeerUnreachableError(f"peer {name!r} unreachable after {attempts} attempts") from e
             _logger.warning(
-                "peer %r not reachable yet (attempt %d): %s: %s", name, attempts, type(e).__name__, e
+                "peer %r not reachable yet (%d/%d): %s: %s", name, attempt, attempts, type(e).__name__, e
             )
-            await asyncio.sleep(interval)
+            await asyncio.sleep(delay)
+    raise AssertionError("unreachable")  # attempts < 1

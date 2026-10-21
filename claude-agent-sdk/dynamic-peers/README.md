@@ -54,12 +54,9 @@ flowchart LR
   change on a not-yet-called worker would go unnoticed.
 - **Workers may not be up yet.** Every agent in the `AgentSet` starts at the
   same time, so a worker is often still starting when the supervisor looks for
-  it. Discovery retries all workers at once for up to a minute and returns as
-  soon as every one has answered, so the usual wait is the slowest worker's
-  startup. The supervisor does not serve until discovery finishes, so the wait
-  is kept well inside the container's startup window. A worker still unreachable
-  after that is logged and skipped, and stays missing until the supervisor
-  restarts.
+  it. Discovery retries each worker for about a minute. If one is still
+  unreachable, the supervisor exits with an error and Kubernetes restarts the
+  pod, which tries again. The supervisor never serves with a worker missing.
 - **A failing worker doesn't crash a run.** The supervisor's tool returns the
   error to the model as a tool error, so it can answer around it.
 - **Every role is locked down** (see `agent.py`): `tools=[]` removes all
