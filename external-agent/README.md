@@ -6,12 +6,6 @@ A supervisor that delegates to a worker that **lives in a different
 same way. The `AgentSet` references `hotels` as an
 [external agent](https://github.com/kynoproj/kynomesh/blob/main/docs/user-guide/reference/configuration/external-agents.md).
 
-The entry agent is named `planner`. With `pattern: Supervisor` it is the
-supervisor: it sees every other agent and delegates to them.
-
-The entry agent is named `planner`. With `pattern: Supervisor` it is the
-supervisor: it sees every other agent and delegates to them.
-
 ```mermaid
 flowchart LR
     client([client]) -- A2A --> planner

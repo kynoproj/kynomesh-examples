@@ -5,12 +5,6 @@ At startup it asks Kynomesh who its peers are, reads each peer's `AgentCard`,
 and generates one tool per worker from that card. Add or remove a worker in the
 `AgentSet` and the supervisor picks it up without a code change or a new image.
 
-The entry agent is named `planner`. With `pattern: Supervisor` it is the
-supervisor: it sees every other agent and delegates to them.
-
-The entry agent is named `planner`. With `pattern: Supervisor` it is the
-supervisor: it sees every other agent and delegates to them.
-
 ```mermaid
 flowchart LR
     client([client]) -- A2A --> planner

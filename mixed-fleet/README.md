@@ -6,12 +6,6 @@ Claude Agent SDK, and none of them knows or cares what the others are built
 with. They only see `AgentCard`s and A2A endpoints, which is what Kynomesh's
 language and framework independence means in practice.
 
-The entry agent is named `planner`. With `pattern: Supervisor` it is the
-supervisor: it sees every other agent and delegates to them.
-
-The entry agent is named `planner`. With `pattern: Supervisor` it is the
-supervisor: it sees every other agent and delegates to them.
-
 ```mermaid
 flowchart LR
     client([client]) -- A2A --> planner
