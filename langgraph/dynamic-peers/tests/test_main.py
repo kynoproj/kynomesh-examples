@@ -75,3 +75,28 @@ async def test_unreachable_worker_stops_startup_instead_of_serving_without_it(mo
 
     with pytest.raises(PeerUnreachableError):  # the container exits, so Kubernetes restarts the pod
         await main.build_supervisor_agent()
+
+
+def test_worker_gains_the_behavior_of_an_enabled_extra_skill(monkeypatch):
+    seen = {}
+
+    def fake_create_agent(llm, tools, *, system_prompt):
+        seen["prompt"] = system_prompt
+        return object()
+
+    monkeypatch.setattr(main, "create_agent", fake_create_agent)
+    with patch.object(main.supervisor_module, "build_llm", return_value=_llm("x")):
+        main.build_worker_agent("hotels")
+        assert "cheapest option" not in seen["prompt"]
+
+        monkeypatch.setenv("EXTRA_SKILLS", "price-comparison")
+        main.build_worker_agent("hotels")
+
+    assert "cheapest option" in seen["prompt"]
+
+
+def test_worker_refuses_to_start_with_an_unknown_extra_skill(monkeypatch):
+    monkeypatch.setenv("EXTRA_SKILLS", "loyalty")
+
+    with pytest.raises(ValueError, match="unknown extra skill"):
+        main.build_worker_agent("hotels")

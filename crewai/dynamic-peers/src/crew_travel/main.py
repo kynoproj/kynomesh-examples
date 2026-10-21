@@ -22,7 +22,7 @@ from crew_travel.discovery import discover_workers
 from crew_travel.executor import CrewExecutor, Run
 from crew_travel.peers import ask_peer, blocking_ask
 from crew_travel.supervisor import build_supervisor
-from crew_travel.workers import WORKERS
+from crew_travel.workers import EXTRA_SKILLS_ENV, WORKERS, with_extra_skills
 
 logging.basicConfig(level=logging.INFO)
 _logger = logging.getLogger("crew_travel")
@@ -43,7 +43,8 @@ async def build_supervisor_agent() -> tuple[Run, AgentCard]:
 
 def build_worker_agent(role: str) -> tuple[Run, AgentCard]:
     spec = WORKERS[role]
-    agent = build_agent(role=role, instruction=spec.instruction, tools=spec.tools)
+    instruction = with_extra_skills(spec.instruction, os.getenv(EXTRA_SKILLS_ENV, ""))
+    agent = build_agent(role=role, instruction=instruction, tools=spec.tools)
 
     async def run(prompt: str) -> str:
         return await run_agent(prompt, agent=agent)

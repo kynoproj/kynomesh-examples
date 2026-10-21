@@ -22,7 +22,7 @@ from adk_travel.discovery import discover_workers
 from adk_travel.executor import AdkExecutor, Run
 from adk_travel.peers import ask_peer
 from adk_travel.supervisor import build_supervisor_runner
-from adk_travel.workers import WORKERS
+from adk_travel.workers import EXTRA_SKILLS_ENV, WORKERS, with_extra_skills
 
 logging.basicConfig(level=logging.INFO)
 _logger = logging.getLogger("adk_travel")
@@ -43,7 +43,8 @@ async def build_supervisor_agent() -> tuple[Run, AgentCard]:
 
 def build_worker_agent(role: str) -> tuple[Run, AgentCard]:
     spec = WORKERS[role]
-    runner = build_runner(name=role, instruction=spec.instruction, tools=spec.tools)
+    instruction = with_extra_skills(spec.instruction, os.getenv(EXTRA_SKILLS_ENV, ""))
+    runner = build_runner(name=role, instruction=instruction, tools=spec.tools)
 
     async def run(prompt: str) -> str:
         return await run_agent(prompt, runner=runner)

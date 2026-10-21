@@ -1,8 +1,8 @@
 import pytest
 
-from adk_travel.cards import extra_skills, supervisor_card, worker_card
+from adk_travel.cards import supervisor_card, worker_card
 from adk_travel.tools import get_forecast, search_flights, search_hotels
-from adk_travel.workers import WORKERS
+from adk_travel.workers import WORKERS, extra_skills, with_extra_skills
 
 
 def test_tools_return_stub_data():
@@ -31,14 +31,31 @@ def test_worker_cards_advertise_their_skills_and_protocol_version(role):
     assert all(i.protocol_version for i in card.supported_interfaces)
 
 
-def test_extra_skills_env_changes_the_card(monkeypatch):
+def test_extra_skill_env_changes_the_card(monkeypatch):
     base = worker_card("hotels")
-    monkeypatch.setenv("EXTRA_SKILLS", "price-comparison, loyalty")
+    monkeypatch.setenv("EXTRA_SKILLS", "price-comparison")
 
     changed = worker_card("hotels")
 
-    assert [s.id for s in changed.skills][-2:] == ["price-comparison", "loyalty"]
+    added = changed.skills[-1]
+    assert [s.id for s in changed.skills][:-1] == [s.id for s in base.skills]
+    assert added.id == "price-comparison"
+    assert added.name == "Price comparison"
+    assert "cheapest" in added.description
     assert changed != base
+
+
+def test_extra_skill_also_changes_what_the_worker_does():
+    base = "You are a hotels expert."
+
+    assert with_extra_skills(base, "") == base
+    boosted = with_extra_skills(base, "price-comparison")
+    assert boosted.startswith(base) and "cheapest option" in boosted
+
+
+def test_unknown_extra_skill_is_rejected_instead_of_advertising_a_skill_it_lacks():
+    with pytest.raises(ValueError, match="unknown extra skill.*loyalty.*price-comparison"):
+        extra_skills("price-comparison, loyalty")
 
 
 def test_extra_skills_ignores_blanks():

@@ -7,16 +7,7 @@ import os
 from a2a.types.a2a_pb2 import AgentCapabilities, AgentCard, AgentInterface, AgentSkill
 from a2a.utils.constants import PROTOCOL_VERSION_CURRENT, TransportProtocol
 
-from travel.workers import WORKERS, Skill
-
-EXTRA_SKILLS_ENV = "EXTRA_SKILLS"
-
-
-def extra_skills(raw: str) -> tuple[Skill, ...]:
-    """Parse a comma-separated list of skill ids, e.g. "price-comparison,loyalty"."""
-    ids = [part.strip() for part in raw.split(",") if part.strip()]
-    return tuple(Skill(i, i.replace("-", " ").capitalize(), f"Extra skill: {i}") for i in ids)
-
+from travel.workers import EXTRA_SKILLS_ENV, WORKERS, Skill, extra_skills
 
 def _card(name: str, description: str, skills: tuple[Skill, ...], examples: tuple[str, ...]) -> AgentCard:
     # URLs are placeholders for local dev; Kynomesh rewrites them in-cluster.
