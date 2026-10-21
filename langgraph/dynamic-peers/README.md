@@ -38,8 +38,11 @@ flowchart LR
   hash, which `driftReload` compares against. A peer this process never built a
   client for is "unknown" to drift detection, so without the warm-up a card
   change on a not-yet-called worker would go unnoticed.
-- **Unreachable workers don't block startup.** A peer whose card can't be
-  fetched after a few retries is logged and skipped.
+- **Workers may not be up yet.** Every agent in the `AgentSet` starts at the
+  same time, so a worker is often still starting when the supervisor looks for
+  it. Discovery retries each worker for about a minute. If one is still
+  unreachable, the supervisor exits with an error and Kubernetes restarts the
+  pod, which tries again. The supervisor never serves with a worker missing.
 
 ## Prerequisites
 
