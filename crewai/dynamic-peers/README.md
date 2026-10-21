@@ -65,8 +65,14 @@ flowchart LR
   hash, which `driftReload` compares against. A peer this process never built a
   client for is "unknown" to drift detection, so without the warm-up a card
   change on a not-yet-called worker would go unnoticed.
-- **Unreachable workers don't block startup.** A peer whose card can't be
-  fetched after a few retries is logged and skipped.
+- **Workers may not be up yet.** Every agent in the `AgentSet` starts at the
+  same time, so a worker is often still starting when the supervisor looks for
+  it. Discovery retries all workers at once for up to a minute and returns as
+  soon as every one has answered, so the usual wait is the slowest worker's
+  startup. The supervisor does not serve until discovery finishes, so the wait
+  is kept well inside the container's startup window. A worker still unreachable
+  after that is logged and skipped, and stays missing until the supervisor
+  restarts.
 - **A failing worker doesn't crash a run.** The supervisor's tool returns an
   error string to the model, so it can answer around it.
 - **Requests are independent.** A standalone `Agent` answers each one with
