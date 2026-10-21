@@ -55,3 +55,26 @@ def search_hotels(city: str) -> str:
 def get_forecast(city: str) -> str:
     """Get the weekend weather forecast for a city."""
     return forecast_report(city)
+
+_AMENITIES: dict[str, tuple[str, ...]] = {
+    "Shinjuku Granbell": ("free wifi", "24-hour front desk", "breakfast not included ($15 add-on)"),
+    "Park Hyatt Tokyo": ("free wifi", "indoor pool", "spa", "breakfast included"),
+    "Hotel du Louvre": ("free wifi", "restaurant", "breakfast not included ($25 add-on)"),
+    "Ibis Paris Bastille": ("free wifi", "24-hour bar", "breakfast not included ($12 add-on)"),
+    "Memmo Alfama": ("free wifi", "rooftop pool", "breakfast included"),
+}
+
+
+def amenities_report(hotel: str) -> str:
+    needle = hotel.strip().lower()
+    if needle:
+        for name, items in _AMENITIES.items():
+            if name.lower() in needle or needle in name.lower():
+                return f"{name}: " + ", ".join(items)
+    return f"No amenity information for {hotel!r}."
+
+
+@tool("hotel_amenities")
+def hotel_amenities(hotel: str) -> str:
+    """List a hotel's amenities, such as breakfast, wifi and pool."""
+    return amenities_report(hotel)

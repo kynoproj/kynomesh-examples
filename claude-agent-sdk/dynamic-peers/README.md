@@ -96,39 +96,80 @@ kubectl get agentset,agentdeploy
 kubectl port-forward svc/claude-travel-ingress 8490
 ```
 
-Ask it something. The planner logs the workers it found:
+## 3. Add and remove a worker: no code change
+
+Start with a weekend trip to Tokyo. The planner logs the workers it found
+(`flights` and `hotels`):
 
 ```shell
 kubectl logs -l app.kubernetes.io/name=claude-travel-planner -c agent | grep discovered
 a2acli -k -u https://localhost:8490 --override-host=localhost:8490 \
   send 'Plan a weekend in Tokyo: flights from SFO and a hotel'
-a2acli -k -u https://localhost:8490 --override-host=localhost:8490 \
-  send 'What is the weather in Tokyo this weekend?'      # no worker for this yet
 ```
 
-## 3. Add a worker: no code change
+Now ask the same thing and add a weather check. There is no weather worker yet,
+so the planner says it can't cover that part:
+
+```shell
+a2acli -k -u https://localhost:8490 --override-host=localhost:8490 \
+  send 'Plan a weekend in Tokyo: flights from SFO and a hotel, and check the weather'
+```
+
+Add the `weather` worker. Only the manifest changes: the code and image are the
+same. Kynomesh restarts the planner because its set of workers changed, and on
+startup it discovers all three:
 
 ```shell
 kubectl apply -f manifests/agentset-with-weather.yaml
-kubectl get pods -w                                      # planner restarts
+kubectl get pods -w                                      # the planner restarts
 kubectl logs -l app.kubernetes.io/name=claude-travel-planner -c agent | grep discovered
-a2acli ... send 'What is the weather in Tokyo this weekend?'   # now answered
 ```
 
-Remove it again with `kubectl apply -f manifests/agentset.yaml`. The planner
-goes back to two workers.
+Ask the same question again. This time the weather is included:
+
+```shell
+a2acli -k -u https://localhost:8490 --override-host=localhost:8490 \
+  send 'Plan a weekend in Tokyo: flights from SFO and a hotel, and check the weather'
+```
+
+Now remove the `weather` worker again. The planner restarts and goes back to two
+workers:
+
+```shell
+kubectl apply -f manifests/agentset.yaml
+kubectl get pods -w                                      # the planner restarts
+```
+
+Ask once more, with the weather check. With no weather worker, the planner says
+so again:
+
+```shell
+a2acli -k -u https://localhost:8490 --override-host=localhost:8490 \
+  send 'Plan a weekend in Tokyo: flights from SFO and a hotel, and check the weather'
+```
 
 ## 4. Change a worker's card: drift reload
 
 The workers read an optional `EXTRA_SKILLS` env var that turns on extra skills.
-`price-comparison` teaches a worker to compare the options it finds and name the
-cheapest one. It appears on the worker's card and changes how the worker
-answers, like a new release of an agent that gained a skill.
+`amenities` gives the `hotels` worker a new tool, `hotel_amenities`, backed by
+new data, and puts the skill on its card. It stands in for shipping a new
+version of an agent that gained a capability.
+
+First, ask for a trip and add a breakfast check, which the `hotels` worker can't
+answer yet:
+
+```shell
+a2acli -k -u https://localhost:8490 --override-host=localhost:8490 \
+  send 'Plan a weekend in Tokyo: flights from SFO and a hotel, and check if the hotels have breakfast'
+```
+
+The planner covers the flights and hotels, but can't say whether the hotels have
+breakfast. Now turn the skill on:
 
 ```shell
 kubectl patch agentset claude-travel --type=json -p='[
   {"op":"add","path":"/spec/agents/2/container/env/-",
-   "value":{"name":"EXTRA_SKILLS","value":"price-comparison"}}]'
+   "value":{"name":"EXTRA_SKILLS","value":"amenities"}}]'
 ```
 
 `/spec/agents/2` is `hotels`. Once its pods roll, Kynomesh detects that the
@@ -147,12 +188,14 @@ kubectl get pods -w                    # the planner restarts after a few minute
 Check the planner's pod age to confirm the restart. For the mechanism, see the
 [AgentCard drift detection spec](https://kyno.sh/stable/development/specifications/agentcard-drift-reload/).
 
-Then ask for a comparison. The planner's `ask_hotels` tool now advertises the
-skill, and the `hotels` worker acts on it:
+Ask the same question again. The planner's `ask_hotels` tool now advertises the
+skill, and the `hotels` worker answers from its new tool, so the plan covers
+breakfast too: Park Hyatt Tokyo includes it, and Shinjuku Granbell does not (it
+is a $15 add-on).
 
 ```shell
 a2acli -k -u https://localhost:8490 --override-host=localhost:8490 \
-  send 'What is the cheapest hotel in Tokyo, and how much does it save?'
+  send 'Plan a weekend in Tokyo: flights from SFO and a hotel, and check if the hotels have breakfast'
 ```
 
 Clean up with `make delete`.

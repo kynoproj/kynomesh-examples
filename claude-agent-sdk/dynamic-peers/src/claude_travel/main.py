@@ -22,7 +22,7 @@ from claude_travel.discovery import discover_workers
 from claude_travel.executor import ClaudeExecutor, Run
 from claude_travel.peers import ask_peer
 from claude_travel.supervisor import supervisor_options
-from claude_travel.workers import EXTRA_SKILLS_ENV, WORKERS, with_extra_skills
+from claude_travel.workers import EXTRA_SKILLS_ENV, WORKERS, extra_tools, with_extra_skills
 
 logging.basicConfig(level=logging.INFO)
 _logger = logging.getLogger("claude_travel")
@@ -42,10 +42,12 @@ async def build_supervisor_agent() -> tuple[Run, AgentCard]:
 
 def build_worker_agent(role: str) -> tuple[Run, AgentCard]:
     spec = WORKERS[role]
-    system_prompt = with_extra_skills(spec.prompt, os.getenv(EXTRA_SKILLS_ENV, ""))
+    extra = os.getenv(EXTRA_SKILLS_ENV, "")
+    system_prompt = with_extra_skills(spec.prompt, extra)
+    tools = (*spec.tools, *extra_tools(extra))
 
     async def run(prompt: str) -> str:
-        options = locked_down_options(system_prompt=system_prompt, tools=spec.tools)
+        options = locked_down_options(system_prompt=system_prompt, tools=tools)
         return await run_agent(prompt, options=options)
 
     return run, worker_card(role)

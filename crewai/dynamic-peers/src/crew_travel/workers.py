@@ -7,7 +7,7 @@ from dataclasses import dataclass
 
 from crewai.tools import BaseTool
 
-from crew_travel.tools import get_forecast, search_flights, search_hotels
+from crew_travel.tools import get_forecast, search_flights, search_hotels, hotel_amenities
 
 
 @dataclass(frozen=True)
@@ -17,32 +17,31 @@ class Skill:
     description: str
 
 
+
 EXTRA_SKILLS_ENV = "EXTRA_SKILLS"
 
 
 @dataclass(frozen=True)
 class ExtraSkill:
     skill: Skill
-    guidance: str  # added to the worker's instructions while the skill is on
+    tools: tuple  # the new capability: tools the worker gains while the skill is on
+    guidance: str  # tells the worker when to use them
 
 
 # Skills a worker can gain without a new image. Turning one on changes both the
-# worker's AgentCard and what it does, the way a new release of the agent would.
+# worker's AgentCard and what it can do, the way a new release of the agent would.
 EXTRA_SKILL_CATALOG: dict[str, ExtraSkill] = {
-    "price-comparison": ExtraSkill(
-        Skill(
-            "price-comparison",
-            "Price comparison",
-            "Compares the options it finds and names the cheapest, with how much it saves",
-        ),
-        "When asked to compare prices or find the cheapest option, name the cheapest option "
-        "and say how much it saves compared with the others.",
+    "amenities": ExtraSkill(
+        Skill("amenities", "Amenities", "Lists a hotel's amenities, such as breakfast, wifi and pool"),
+        (hotel_amenities,),
+        "Use hotel_amenities to answer questions about a hotel's amenities, "
+        "such as whether breakfast is included.",
     ),
 }
 
 
 def enabled_extra_skills(raw: str) -> tuple[ExtraSkill, ...]:
-    """Parse a comma-separated list of skill ids, e.g. "price-comparison"."""
+    """Parse a comma-separated list of skill ids, e.g. "amenities"."""
     ids = [part.strip() for part in raw.split(",") if part.strip()]
     unknown = [i for i in ids if i not in EXTRA_SKILL_CATALOG]
     if unknown:
@@ -53,6 +52,11 @@ def enabled_extra_skills(raw: str) -> tuple[ExtraSkill, ...]:
 def extra_skills(raw: str) -> tuple[Skill, ...]:
     """The AgentCard skills for the enabled extra skills."""
     return tuple(e.skill for e in enabled_extra_skills(raw))
+
+
+def extra_tools(raw: str) -> tuple:
+    """The tools the enabled extra skills add."""
+    return tuple(t for e in enabled_extra_skills(raw) for t in e.tools)
 
 
 def with_extra_skills(instruction: str, raw: str) -> str:
