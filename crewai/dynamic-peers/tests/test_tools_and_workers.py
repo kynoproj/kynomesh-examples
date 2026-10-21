@@ -2,7 +2,10 @@ import pytest
 
 from crew_travel.cards import supervisor_card, worker_card
 from crew_travel.tools import get_forecast, search_flights, search_hotels
-from crew_travel.workers import WORKERS, extra_skills, with_extra_skills
+from crew_travel.workers import WORKERS, extra_skills, extra_tools, with_extra_skills
+
+def _name(tool):
+    return getattr(tool, "name", None) or tool.__name__
 
 
 def test_tools_return_stub_data():
@@ -25,29 +28,30 @@ def test_worker_cards_advertise_their_skills_and_protocol_version(role):
 
 def test_extra_skill_env_changes_the_card(monkeypatch):
     base = worker_card("hotels")
-    monkeypatch.setenv("EXTRA_SKILLS", "price-comparison")
+    monkeypatch.setenv("EXTRA_SKILLS", "amenities")
 
     changed = worker_card("hotels")
 
     added = changed.skills[-1]
     assert [s.id for s in changed.skills][:-1] == [s.id for s in base.skills]
-    assert added.id == "price-comparison"
-    assert added.name == "Price comparison"
-    assert "cheapest" in added.description
+    assert added.id == "amenities"
+    assert added.name == "Amenities"
+    assert "breakfast" in added.description
     assert changed != base
 
 
-def test_extra_skill_also_changes_what_the_worker_does():
+def test_extra_skill_gives_the_worker_a_new_tool_and_guidance():
     base = "You are a hotels expert."
 
+    assert extra_tools("") == ()
+    assert [_name(t) for t in extra_tools("amenities")] == ["hotel_amenities"]
     assert with_extra_skills(base, "") == base
-    boosted = with_extra_skills(base, "price-comparison")
-    assert boosted.startswith(base) and "cheapest option" in boosted
+    assert "hotel_amenities" in with_extra_skills(base, "amenities")
 
 
 def test_unknown_extra_skill_is_rejected_instead_of_advertising_a_skill_it_lacks():
-    with pytest.raises(ValueError, match="unknown extra skill.*loyalty.*price-comparison"):
-        extra_skills("price-comparison, loyalty")
+    with pytest.raises(ValueError, match="unknown extra skill.*loyalty.*amenities"):
+        extra_skills("amenities, loyalty")
 
 
 def test_extra_skills_ignores_blanks():

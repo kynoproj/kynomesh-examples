@@ -75,3 +75,29 @@ def get_forecast(city: str) -> dict[str, str]:
         city: The city to forecast.
     """
     return ok(forecast_report(city))
+
+_AMENITIES: dict[str, tuple[str, ...]] = {
+    "Shinjuku Granbell": ("free wifi", "24-hour front desk", "breakfast not included ($15 add-on)"),
+    "Park Hyatt Tokyo": ("free wifi", "indoor pool", "spa", "breakfast included"),
+    "Hotel du Louvre": ("free wifi", "restaurant", "breakfast not included ($25 add-on)"),
+    "Ibis Paris Bastille": ("free wifi", "24-hour bar", "breakfast not included ($12 add-on)"),
+    "Memmo Alfama": ("free wifi", "rooftop pool", "breakfast included"),
+}
+
+
+def amenities_report(hotel: str) -> str:
+    needle = hotel.strip().lower()
+    if needle:
+        for name, items in _AMENITIES.items():
+            if name.lower() in needle or needle in name.lower():
+                return f"{name}: " + ", ".join(items)
+    return f"No amenity information for {hotel!r}."
+
+
+def hotel_amenities(hotel: str) -> dict[str, str]:
+    """List a hotel's amenities, such as breakfast, wifi and pool.
+
+    Args:
+        hotel: The hotel's name, for example "Shinjuku Granbell".
+    """
+    return ok(amenities_report(hotel))

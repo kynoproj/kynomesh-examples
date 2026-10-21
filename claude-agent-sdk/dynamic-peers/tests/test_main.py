@@ -82,7 +82,7 @@ async def test_unreachable_worker_stops_startup_instead_of_serving_without_it(mo
         await main.build_supervisor_agent()
 
 
-async def test_worker_gains_the_behavior_of_an_enabled_extra_skill(monkeypatch):
+async def test_worker_gains_the_tool_of_an_enabled_extra_skill(monkeypatch):
     seen = {}
 
     async def fake_run_agent(prompt, *, options):
@@ -93,13 +93,14 @@ async def test_worker_gains_the_behavior_of_an_enabled_extra_skill(monkeypatch):
 
     plain, _ = main.build_worker_agent("hotels")
     await plain("hi")
-    assert "cheapest option" not in seen["options"].system_prompt
+    assert seen["options"].allowed_tools == ["mcp__tools__search_hotels"]
 
-    monkeypatch.setenv("EXTRA_SKILLS", "price-comparison")
+    monkeypatch.setenv("EXTRA_SKILLS", "amenities")
     boosted, _ = main.build_worker_agent("hotels")
     await boosted("hi")
 
-    assert "cheapest option" in seen["options"].system_prompt
+    assert seen["options"].allowed_tools == ["mcp__tools__search_hotels", "mcp__tools__hotel_amenities"]
+    assert "hotel_amenities" in seen["options"].system_prompt
 
 
 def test_worker_refuses_to_start_with_an_unknown_extra_skill(monkeypatch):
