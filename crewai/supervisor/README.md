@@ -4,12 +4,18 @@ A [CrewAI](https://docs.crewai.com/) supervisor agent that delegates to two
 worker agents, each running in its own pod and reached over A2A through
 Kynomesh.
 
+The entry agent is named `assistant`. With `pattern: Supervisor` it is the
+supervisor: it sees every other agent and delegates to them.
+
+The entry agent is named `assistant`. With `pattern: Supervisor` it is the
+supervisor: it sees every other agent and delegates to them.
+
 ```mermaid
 flowchart LR
-    client([client]) -- A2A --> supervisor
+    client([client]) -- A2A --> assistant
     subgraph AgentSet["AgentSet: crew-supervisor (pattern: Supervisor)"]
-        supervisor -- A2A --> researcher["researcher (fact lookup)"]
-        supervisor -- A2A --> calculator["calculator (arithmetic)"]
+        assistant -- A2A --> researcher["researcher (fact lookup)"]
+        assistant -- A2A --> calculator["calculator (arithmetic)"]
     end
 ```
 
@@ -17,18 +23,18 @@ CrewAI does not speak A2A, and does not need to. Kynomesh's Python SDK runs each
 agent's A2A server and makes the calls between agents; CrewAI only sees ordinary
 tools.
 
-| File                             | Role                                                                                                                   |
-| -------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| `src/crew_assistant/agents.py`   | The three CrewAI agents and `run_agent`. The supervisor's tools (`ask_researcher`, `ask_calculator`) call the workers. |
-| `src/crew_assistant/peers.py`    | `ask_peer` calls a peer with `kynomesh.client.peer_client`; `blocking_ask` lets a CrewAI tool call it.                 |
-| `src/crew_assistant/tools.py`    | Worker tools: a small knowledge-base lookup and `add`/`multiply`/`divide`.                                             |
-| `src/crew_assistant/executor.py` | Bridges an A2A message to `run_agent` and back.                                                                        |
-| `src/crew_assistant/main.py`     | Serves one role via `kynomesh.server.start`; the role comes from `--role`.                                             |
-| `manifests/agentset.yaml`        | One image, three agents. `pattern: Supervisor`, `entry: supervisor`.                                                   |
+| File                             | Role                                                                                                                  |
+| -------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `src/crew_assistant/agents.py`   | The three CrewAI agents and `run_agent`. The assistant's tools (`ask_researcher`, `ask_calculator`) call the workers. |
+| `src/crew_assistant/peers.py`    | `ask_peer` calls a peer with `kynomesh.client.peer_client`; `blocking_ask` lets a CrewAI tool call it.                |
+| `src/crew_assistant/tools.py`    | Worker tools: a small knowledge-base lookup and `add`/`multiply`/`divide`.                                            |
+| `src/crew_assistant/executor.py` | Bridges an A2A message to `run_agent` and back.                                                                       |
+| `src/crew_assistant/main.py`     | Serves one role via `kynomesh.server.start`; the role comes from `--role`.                                            |
+| `manifests/agentset.yaml`        | One image, three agents. `pattern: Supervisor`, `entry: assistant`.                                                   |
 
 `pattern: Supervisor` makes the entry agent see every other agent, while the
 workers see nobody. Kynomesh derives that peer list from the AgentSet, which is
-why `peer_client("researcher")` works in the supervisor and nowhere else.
+why `peer_client("researcher")` works in the assistant and nowhere else.
 
 ## What to know about CrewAI
 
@@ -37,12 +43,12 @@ why `peer_client("researcher")` works in the supervisor and nowhere else.
 - **Tools run on a worker thread with their own event loop.** CrewAI does this
   for sync and async tools alike. The Kynomesh client caches peer connections
   for a single event loop, so a tool cannot just `await ask_peer(...)`. The
-  supervisor's tools are plain functions that call `blocking_ask`, which hands
+  assistant's tools are plain functions that call `blocking_ask`, which hands
   the A2A call back to the server's loop with `run_coroutine_threadsafe` and
   waits (up to 120s) for the reply. If it is ever called on the loop thread, it
   raises instead of deadlocking.
-- A failing worker comes back to the supervisor's model as an error string, so
-  it can answer around it instead of the run crashing.
+- A failing worker comes back to the assistant's model as an error string, so it
+  can answer around it instead of the run crashing.
 - Agents run on OpenAI by default. Set `OPENAI_MODEL` to pick a model (default
   `gpt-4o-mini`).
 - CrewAI draws progress panels to stdout, keeps state under `$HOME` and sends
@@ -51,7 +57,7 @@ why `peer_client("researcher")` works in the supervisor and nowhere else.
 - CrewAI needs Python below 3.14, so the project pins `requires-python` to
   `>=3.10,<3.14`.
 
-Here the workers are named in the supervisor's code. To discover them from
+Here the workers are named in the assistant's code. To discover them from
 Kynomesh instead, see [dynamic-peers](../dynamic-peers).
 
 ## Prerequisites
@@ -70,7 +76,7 @@ uv run pytest    # the model and the peer calls are mocked
 ```
 
 Running the three agents locally needs the Kynomesh topology file that only
-exists in-cluster, so the supervisor's peer calls work on Kynomesh. A worker
+exists in-cluster, so the assistant's peer calls work on Kynomesh. A worker
 alone does run locally:
 
 ```shell

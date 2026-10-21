@@ -6,16 +6,22 @@ A supervisor that delegates to a worker that **lives in a different
 same way. The `AgentSet` references `hotels` as an
 [external agent](https://github.com/kynoproj/kynomesh/blob/main/docs/user-guide/reference/configuration/external-agents.md).
 
+The entry agent is named `planner`. With `pattern: Supervisor` it is the
+supervisor: it sees every other agent and delegates to them.
+
+The entry agent is named `planner`. With `pattern: Supervisor` it is the
+supervisor: it sees every other agent and delegates to them.
+
 ```mermaid
 flowchart LR
-    client([client]) -- A2A --> supervisor
+    client([client]) -- A2A --> planner
     subgraph A["AgentSet: external-travel (pattern: Supervisor)"]
-        supervisor["supervisor<br/>(Claude Agent SDK)"] -- A2A --> flights["flights<br/>(LangGraph)"]
+        planner["planner<br/>(Claude Agent SDK)"] -- A2A --> flights["flights<br/>(LangGraph)"]
     end
     subgraph B["AgentSet: external-hotels"]
         hotels["hotels<br/>(Claude Agent SDK)"]
     end
-    supervisor -. "A2A (externalAgents)" .-> hotels
+    planner -. "A2A (externalAgents)" .-> hotels
 ```
 
 There is no agent code here. The manifests reuse the images built by two sibling
@@ -23,20 +29,20 @@ examples, picking the agent with `--role`:
 
 | Agent                               | Framework        | Image              | Built from                                                            |
 | ----------------------------------- | ---------------- | ------------------ | --------------------------------------------------------------------- |
-| `supervisor`                        | Claude Agent SDK | `claude-travel`    | [`claude-agent-sdk/dynamic-peers`](../claude-agent-sdk/dynamic-peers) |
+| `planner`                           | Claude Agent SDK | `claude-travel`    | [`claude-agent-sdk/dynamic-peers`](../claude-agent-sdk/dynamic-peers) |
 | `hotels` (external, own `AgentSet`) | Claude Agent SDK | `claude-travel`    | [`claude-agent-sdk/dynamic-peers`](../claude-agent-sdk/dynamic-peers) |
 | `flights`                           | LangGraph        | `langgraph-travel` | [`langgraph/dynamic-peers`](../langgraph/dynamic-peers)               |
 
-| File                             | Role                                                                                      |
-| -------------------------------- | ----------------------------------------------------------------------------------------- |
-| `manifests/hotels-agentset.yaml` | `hotels`, deployed as its own `AgentSet`.                                                 |
-| `manifests/agentset.yaml`        | Supervisor + `flights`, with `externalAgents: [hotels]` pointing at the other `AgentSet`. |
+| File                             | Role                                                                                   |
+| -------------------------------- | -------------------------------------------------------------------------------------- |
+| `manifests/hotels-agentset.yaml` | `hotels`, deployed as its own `AgentSet`.                                              |
+| `manifests/agentset.yaml`        | Planner + `flights`, with `externalAgents: [hotels]` pointing at the other `AgentSet`. |
 
 ## What an external agent is
 
-Nothing is deployed for it in the supervisor's `AgentSet`: no pod, no broker, no
+Nothing is deployed for it in the planner's `AgentSet`: no pod, no broker, no
 scaling or probing. It is a name and a URL, and Kynomesh adds it to the entry
-agent's peers like any other. The supervisor discovers it from its topology and
+agent's peers like any other. The planner discovers it from its topology and
 `AgentCard`, so it needs no code change and cannot tell `hotels` is external. An
 external agent can be called but never be the `entry`. The other `AgentSet`
 keeps managing its own pods as usual.
@@ -51,7 +57,7 @@ Peers in the same `AgentSet` are reached over each broker's self-signed
 certificate, and the Kynomesh SDK skips verification for them. An **external**
 peer is expected to present a CA-signed certificate, so it is verified. But the
 `hotels` broker is self-signed too, so verification would fail with
-`CERTIFICATE_VERIFY_FAILED`. The supervisor therefore sets:
+`CERTIFICATE_VERIFY_FAILED`. The planner therefore sets:
 
 ```yaml
 - name: KYNOMESH_INSECURE_TLS_PEERS
@@ -85,11 +91,11 @@ kubectl get agentdeploy        # hotels belongs to external-hotels
 kubectl port-forward svc/external-travel-ingress 8490
 ```
 
-The supervisor logs the workers it found. `hotels` is in the list even though it
-is deployed elsewhere:
+The planner logs the workers it found. `hotels` is in the list even though it is
+deployed elsewhere:
 
 ```shell
-kubectl logs -l app.kubernetes.io/name=external-travel-supervisor -c agent | grep discovered
+kubectl logs -l app.kubernetes.io/name=external-travel-planner -c agent | grep discovered
 a2acli -k -u https://localhost:8490 --override-host=localhost:8490 \
   send 'Plan a weekend in Tokyo: flights from SFO and a hotel'
 ```

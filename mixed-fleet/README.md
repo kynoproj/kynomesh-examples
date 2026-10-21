@@ -6,14 +6,20 @@ Claude Agent SDK, and none of them knows or cares what the others are built
 with. They only see `AgentCard`s and A2A endpoints, which is what Kynomesh's
 language and framework independence means in practice.
 
+The entry agent is named `planner`. With `pattern: Supervisor` it is the
+supervisor: it sees every other agent and delegates to them.
+
+The entry agent is named `planner`. With `pattern: Supervisor` it is the
+supervisor: it sees every other agent and delegates to them.
+
 ```mermaid
 flowchart LR
-    client([client]) -- A2A --> supervisor
+    client([client]) -- A2A --> planner
     subgraph AgentSet["AgentSet: mixed-travel (pattern: Supervisor)"]
-        supervisor["supervisor<br/>(Claude Agent SDK)"]
-        supervisor -- A2A --> flights["flights<br/>(LangGraph)"]
-        supervisor -- A2A --> hotels["hotels<br/>(Claude Agent SDK)"]
-        supervisor -. "A2A (added/removed in the demo)" .-> weather["weather<br/>(LangGraph)"]
+        planner["planner<br/>(Claude Agent SDK)"]
+        planner -- A2A --> flights["flights<br/>(LangGraph)"]
+        planner -- A2A --> hotels["hotels<br/>(Claude Agent SDK)"]
+        planner -. "A2A (added/removed in the demo)" .-> weather["weather<br/>(LangGraph)"]
     end
 ```
 
@@ -23,11 +29,11 @@ with `--role`:
 
 | Agent                | Framework        | Image              | Built from                                                            |
 | -------------------- | ---------------- | ------------------ | --------------------------------------------------------------------- |
-| `supervisor`         | Claude Agent SDK | `claude-travel`    | [`claude-agent-sdk/dynamic-peers`](../claude-agent-sdk/dynamic-peers) |
+| `planner`            | Claude Agent SDK | `claude-travel`    | [`claude-agent-sdk/dynamic-peers`](../claude-agent-sdk/dynamic-peers) |
 | `hotels`             | Claude Agent SDK | `claude-travel`    | [`claude-agent-sdk/dynamic-peers`](../claude-agent-sdk/dynamic-peers) |
 | `flights`, `weather` | LangGraph        | `langgraph-travel` | [`langgraph/dynamic-peers`](../langgraph/dynamic-peers)               |
 
-The supervisor discovers its workers at startup from the Kynomesh topology and
+The planner discovers its workers at startup from the Kynomesh topology and
 their cards, so it picks up a worker the same way whichever framework runs it.
 Read those two examples for how discovery, drift reload and the lockdown work.
 
@@ -52,11 +58,11 @@ kubectl get agentset,agentdeploy
 kubectl port-forward svc/mixed-travel-ingress 8490
 ```
 
-The supervisor logs the workers it found, and the pods show which image each
-agent runs:
+The planner logs the workers it found, and the pods show which image each agent
+runs:
 
 ```shell
-kubectl logs -l app.kubernetes.io/name=mixed-travel-supervisor -c agent | grep discovered
+kubectl logs -l app.kubernetes.io/name=mixed-travel-planner -c agent | grep discovered
 kubectl get pods -o custom-columns='POD:.metadata.name,IMAGE:.spec.initContainers[?(@.name=="agent")].image'
 a2acli -k -u https://localhost:8490 --override-host=localhost:8490 \
   send 'Plan a weekend in Tokyo: flights from SFO and a hotel'
@@ -64,12 +70,12 @@ a2acli -k -u https://localhost:8490 --override-host=localhost:8490 \
 
 The answer combines `flights` (LangGraph) and `hotels` (Claude).
 
-## Add a LangGraph worker to a Claude supervisor
+## Add a LangGraph worker to a Claude planner
 
 ```shell
 kubectl apply -f manifests/agentset-with-weather.yaml
-kubectl get pods -w                                      # supervisor restarts
-kubectl logs -l app.kubernetes.io/name=mixed-travel-supervisor -c agent | grep discovered
+kubectl get pods -w                                      # planner restarts
+kubectl logs -l app.kubernetes.io/name=mixed-travel-planner -c agent | grep discovered
 a2acli ... send 'What is the weather in Tokyo this weekend?'
 ```
 

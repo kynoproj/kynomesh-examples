@@ -1,4 +1,4 @@
-"""Serve one role (supervisor, researcher or calculator) over A2A via Kynomesh.
+"""Serve one role (assistant, researcher or calculator) over A2A via Kynomesh.
 
 One image runs all three agents; the AgentSet picks the role with --role.
 """
@@ -24,7 +24,7 @@ logging.basicConfig(level=logging.INFO)
 
 
 def build_runner(role: str) -> Runner:
-    if role == "supervisor":
+    if role == "assistant":
         return agents.build_supervisor(ask_peer)
     if role == "researcher":
         return agents.build_researcher()

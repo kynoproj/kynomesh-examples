@@ -9,7 +9,7 @@ from crew_assistant import main
 @pytest.mark.parametrize(
     ("role", "tools"),
     [
-        ("supervisor", ["ask_researcher", "ask_calculator"]),
+        ("assistant", ["ask_researcher", "ask_calculator"]),
         ("researcher", ["lookup_fact"]),
         ("calculator", ["add", "multiply", "divide"]),
     ],

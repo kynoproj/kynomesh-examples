@@ -1,7 +1,7 @@
-"""Serve the supervisor or one worker role over A2A via Kynomesh.
+"""Serve the planner or one worker role over A2A via Kynomesh.
 
 One image runs every agent; the AgentSet picks the role with --role. Workers are
-whatever roles the manifest deploys. The supervisor is the same in every case: it
+whatever roles the manifest deploys. The planner is the same in every case: it
 discovers its workers at startup.
 """
 
@@ -27,7 +27,7 @@ from claude_travel.workers import WORKERS
 logging.basicConfig(level=logging.INFO)
 _logger = logging.getLogger("claude_travel")
 
-SUPERVISOR_ROLE = "supervisor"
+ENTRY_ROLE = "planner"
 
 
 async def build_supervisor_agent() -> tuple[Run, AgentCard]:
@@ -51,7 +51,7 @@ def build_worker_agent(role: str) -> tuple[Run, AgentCard]:
 
 
 async def serve(role: str) -> None:
-    if role == SUPERVISOR_ROLE:
+    if role == ENTRY_ROLE:
         run, card = await build_supervisor_agent()
     else:
         run, card = build_worker_agent(role)
@@ -68,7 +68,7 @@ async def serve(role: str) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--role", required=True, choices=[SUPERVISOR_ROLE, *WORKERS])
+    parser.add_argument("--role", required=True, choices=[ENTRY_ROLE, *WORKERS])
     args = parser.parse_args()
     if not os.getenv("ANTHROPIC_API_KEY"):
         raise SystemExit("ANTHROPIC_API_KEY must be set (see README)")
@@ -76,7 +76,7 @@ def main() -> None:
         asyncio.run(serve(args.role))
     except client.TopologyNotAvailableError:
         raise SystemExit(
-            "no Kynomesh topology found: the supervisor only runs inside an AgentSet "
+            "no Kynomesh topology found: the planner only runs inside an AgentSet "
             "(workers can run locally)"
         ) from None
 

@@ -7,13 +7,19 @@ worker from that card. Add or remove a worker in the `AgentSet` and the
 supervisor picks it up without a code change or a new image. The workers are
 CrewAI agents too.
 
+The entry agent is named `planner`. With `pattern: Supervisor` it is the
+supervisor: it sees every other agent and delegates to them.
+
+The entry agent is named `planner`. With `pattern: Supervisor` it is the
+supervisor: it sees every other agent and delegates to them.
+
 ```mermaid
 flowchart LR
-    client([client]) -- A2A --> supervisor
+    client([client]) -- A2A --> planner
     subgraph AgentSet["AgentSet: crew-travel (pattern: Supervisor)"]
-        supervisor -- A2A --> flights
-        supervisor -- A2A --> hotels
-        supervisor -. "A2A (added/removed in the demo)" .-> weather
+        planner -- A2A --> flights
+        planner -- A2A --> hotels
+        planner -. "A2A (added/removed in the demo)" .-> weather
     end
 ```
 
@@ -36,15 +42,15 @@ flowchart LR
 | `src/crew_travel/agent.py`                | `build_agent` and `run_agent`: the CrewAI plumbing shared by every role.                                |
 | `src/crew_travel/peers.py`                | `ask_peer` (A2A call via `peer_client`) and `blocking_ask`, which lets a CrewAI tool call it.           |
 | `src/crew_travel/workers.py` / `tools.py` | The roles this image _can_ run (`flights`, `hotels`, `weather`) and their stub tools. No external APIs. |
-| `src/crew_travel/main.py`                 | `--role supervisor` or a worker role. The manifest decides which workers exist.                         |
-| `manifests/agentset.yaml`                 | Supervisor + `flights` + `hotels`, with `driftReload` on.                                               |
+| `src/crew_travel/main.py`                 | `--role planner` or a worker role. The manifest decides which workers exist.                            |
+| `manifests/agentset.yaml`                 | Planner + `flights` + `hotels`, with `driftReload` on.                                                  |
 | `manifests/agentset-with-weather.yaml`    | The same plus `weather`.                                                                                |
 
 ## How the pieces fit
 
 - **Peers come from the topology.** With `pattern: Supervisor`, Kynomesh gives
   the entry agent a peer list of every other agent. The SDK reads it once per
-  process, so the supervisor's worker set is fixed until its pod restarts.
+  process, so the planner's worker set is fixed until its pod restarts.
 - **Generated tools are ordinary CrewAI tools.** CrewAI takes a tool's name from
   the `@tool` decorator, its description from the docstring and its argument
   schema from the type hints, so `peer_tools` sets those from each worker's
@@ -58,20 +64,20 @@ flowchart LR
   deadlocking.
 - **Drift reload covers changed cards.** If a worker's `AgentCard` changes (for
   example it gains a skill), `driftReload` restarts the pods holding the stale
-  card, and the supervisor rebuilds its tools from the new one. This is not
-  instant (see step 4). See
+  card, and the planner rebuilds its tools from the new one. This is not instant
+  (see step 4). See
   [Drift Reload](https://github.com/kynoproj/kynomesh/blob/main/docs/user-guide/reference/drift-reload.md).
 - **Discovery warms each peer with `peer_client`.** That records the peer's card
   hash, which `driftReload` compares against. A peer this process never built a
   client for is "unknown" to drift detection, so without the warm-up a card
   change on a not-yet-called worker would go unnoticed.
 - **Workers may not be up yet.** Every agent in the `AgentSet` starts at the
-  same time, so a worker is often still starting when the supervisor looks for
-  it. Discovery retries each worker for about a minute. If one is still
-  unreachable, the supervisor exits with an error and Kubernetes restarts the
-  pod, which tries again. The supervisor never serves with a worker missing.
-- **A failing worker doesn't crash a run.** The supervisor's tool returns an
-  error string to the model, so it can answer around it.
+  same time, so a worker is often still starting when the planner looks for it.
+  Discovery retries each worker for about a minute. If one is still unreachable,
+  the planner exits with an error and Kubernetes restarts the pod, which tries
+  again. The planner never serves with a worker missing.
+- **A failing worker doesn't crash a run.** The planner's tool returns an error
+  string to the model, so it can answer around it.
 - **Requests are independent.** A standalone `Agent` answers each one with
   `kickoff_async` from a clean conversation; there is no Task or Crew to wire
   up.
@@ -97,8 +103,8 @@ flowchart LR
 uv run pytest    # no API calls
 ```
 
-The supervisor needs the Kynomesh topology, which only exists in-cluster. A
-worker runs locally:
+The planner needs the Kynomesh topology, which only exists in-cluster. A worker
+runs locally:
 `OPENAI_API_KEY=... uv run python -m crew_travel.main --role flights`.
 
 ## 2. Deploy
@@ -113,10 +119,10 @@ kubectl get agentset,agentdeploy
 kubectl port-forward svc/crew-travel-ingress 8490
 ```
 
-Ask it something. The supervisor logs the workers it found:
+Ask it something. The planner logs the workers it found:
 
 ```shell
-kubectl logs -l app.kubernetes.io/name=crew-travel-supervisor -c agent | grep discovered
+kubectl logs -l app.kubernetes.io/name=crew-travel-planner -c agent | grep discovered
 a2acli -k -u https://localhost:8490 --override-host=localhost:8490 \
   send 'Plan a weekend in Tokyo: flights from SFO and a hotel'
 a2acli -k -u https://localhost:8490 --override-host=localhost:8490 \
@@ -127,12 +133,12 @@ a2acli -k -u https://localhost:8490 --override-host=localhost:8490 \
 
 ```shell
 kubectl apply -f manifests/agentset-with-weather.yaml
-kubectl get pods -w                                      # supervisor restarts
-kubectl logs -l app.kubernetes.io/name=crew-travel-supervisor -c agent | grep discovered
+kubectl get pods -w                                      # planner restarts
+kubectl logs -l app.kubernetes.io/name=crew-travel-planner -c agent | grep discovered
 a2acli ... send 'What is the weather in Tokyo this weekend?'   # now answered
 ```
 
-Remove it again with `kubectl apply -f manifests/agentset.yaml`. The supervisor
+Remove it again with `kubectl apply -f manifests/agentset.yaml`. The planner
 goes back to two workers.
 
 ## 4. Change a worker's card: drift reload
@@ -147,20 +153,19 @@ kubectl patch agentset crew-travel --type=json -p='[
 ```
 
 `/spec/agents/2` is `hotels`. Once its pods roll, Kynomesh detects that the
-`hotels` card changed and restarts the supervisor, whose `ask_hotels` tool now
+`hotels` card changed and restarts the planner, whose `ask_hotels` tool now
 lists the new skill.
 
-**Give it a few minutes.** The supervisor does not restart as soon as the
-`hotels` pods are back, and that is expected, not a failure. Kynomesh waits for
-the changed card to stay stable, and for the rollout to finish, before it
-restarts the supervisor.
+**Give it a few minutes.** The planner does not restart as soon as the `hotels`
+pods are back, and that is expected, not a failure. Kynomesh waits for the
+changed card to stay stable, and for the rollout to finish, before it restarts
+the planner.
 
 ```shell
-kubectl get pods -w                    # the supervisor restarts after a few minutes
+kubectl get pods -w                    # the planner restarts after a few minutes
 ```
 
-Check the supervisor's pod age to confirm the restart. For the mechanism, see
-the
+Check the planner's pod age to confirm the restart. For the mechanism, see the
 [AgentCard drift detection spec](https://kyno.sh/stable/development/specifications/agentcard-drift-reload/).
 
 Clean up with `make delete`.

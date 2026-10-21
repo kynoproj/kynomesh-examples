@@ -4,30 +4,36 @@ A [LangGraph](https://langchain-ai.github.io/langgraph/) supervisor agent that
 delegates to two worker agents, each running in its own pod and reached over A2A
 through Kynomesh.
 
+The entry agent is named `assistant`. With `pattern: Supervisor` it is the
+supervisor: it sees every other agent and delegates to them.
+
+The entry agent is named `assistant`. With `pattern: Supervisor` it is the
+supervisor: it sees every other agent and delegates to them.
+
 ```mermaid
 flowchart LR
-    client([client]) -- A2A --> supervisor
+    client([client]) -- A2A --> assistant
     subgraph AgentSet["AgentSet: langgraph-supervisor (pattern: Supervisor)"]
-        supervisor -- A2A --> researcher["researcher (fact lookup)"]
-        supervisor -- A2A --> calculator["calculator (arithmetic)"]
+        assistant -- A2A --> researcher["researcher (fact lookup)"]
+        assistant -- A2A --> calculator["calculator (arithmetic)"]
     end
 ```
 
-| File                        | Role                                                                                                      |
-| --------------------------- | --------------------------------------------------------------------------------------------------------- |
-| `src/assistant/agents.py`   | The three LangGraph agents. The supervisor's tools (`ask_researcher`, `ask_calculator`) call the workers. |
-| `src/assistant/peers.py`    | `ask_peer`: calls a peer with `kynomesh.client.peer_client`. No URLs anywhere.                            |
-| `src/assistant/tools.py`    | Worker tools: a small knowledge-base lookup and `add`/`multiply`/`divide`.                                |
-| `src/assistant/executor.py` | Bridges A2A messages to a LangGraph agent with `messages` state.                                          |
-| `src/assistant/main.py`     | Serves one role via `kynomesh.server.start`; the role comes from `--role`.                                |
-| `manifests/agentset.yaml`   | One image, three agents. `pattern: Supervisor`, `entry: supervisor`.                                      |
+| File                        | Role                                                                                                     |
+| --------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `src/assistant/agents.py`   | The three LangGraph agents. The assistant's tools (`ask_researcher`, `ask_calculator`) call the workers. |
+| `src/assistant/peers.py`    | `ask_peer`: calls a peer with `kynomesh.client.peer_client`. No URLs anywhere.                           |
+| `src/assistant/tools.py`    | Worker tools: a small knowledge-base lookup and `add`/`multiply`/`divide`.                               |
+| `src/assistant/executor.py` | Bridges A2A messages to a LangGraph agent with `messages` state.                                         |
+| `src/assistant/main.py`     | Serves one role via `kynomesh.server.start`; the role comes from `--role`.                               |
+| `manifests/agentset.yaml`   | One image, three agents. `pattern: Supervisor`, `entry: assistant`.                                      |
 
 `pattern: Supervisor` makes the entry agent see every other agent, while the
 workers see nobody. Kynomesh derives that peer list from the AgentSet, which is
-why `peer_client("researcher")` works in the supervisor and nowhere else.
+why `peer_client("researcher")` works in the assistant and nowhere else.
 
 A failing worker (for example one that is still starting) doesn't fail the
-request: the supervisor's tool returns the error to the model, so it can answer
+request: the assistant's tool returns the error to the model, so it can answer
 around it.
 
 ## Prerequisites
@@ -46,7 +52,7 @@ uv run pytest    # the LLM and the peer calls are mocked
 ```
 
 Running the three agents locally needs the Kynomesh topology file that only
-exists in-cluster, so the supervisor's peer calls work on Kynomesh. A worker
+exists in-cluster, so the assistant's peer calls work on Kynomesh. A worker
 alone does run locally:
 
 ```shell

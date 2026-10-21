@@ -67,7 +67,7 @@ def peer_tools(workers: tuple[WorkerInfo, ...], ask_peer: AskPeer) -> list[BaseT
 
 def build_supervisor(workers: tuple[WorkerInfo, ...], ask_peer: AskPeer, llm: LLM | None = None) -> Agent:
     return build_agent(
-        role="Travel supervisor",
+        role="Travel planner",
         instruction=build_instruction(workers),
         tools=peer_tools(workers, ask_peer),
         llm=llm,

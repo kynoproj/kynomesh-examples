@@ -48,7 +48,7 @@ def _card(name: str, description: str, skills: tuple[Skill, ...], examples: tupl
 
 def supervisor_card() -> AgentCard:
     return _card(
-        "Travel Supervisor",
+        "Travel Planner",
         "Plans trips by delegating to whichever worker agents are deployed",
         (Skill("plan-trip", "Plan a trip", "Delegates to the available workers"),),
         ("Plan a weekend in Tokyo: flights from SFO and a hotel",),
