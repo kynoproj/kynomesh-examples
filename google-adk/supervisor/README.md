@@ -4,12 +4,6 @@ A [Google ADK](https://google.github.io/adk-docs/) supervisor agent that
 delegates to two worker agents, each running in its own pod and reached over A2A
 through Kynomesh.
 
-The entry agent is named `assistant`. With `pattern: Supervisor` it is the
-supervisor: it sees every other agent and delegates to them.
-
-The entry agent is named `assistant`. With `pattern: Supervisor` it is the
-supervisor: it sees every other agent and delegates to them.
-
 ```mermaid
 flowchart LR
     client([client]) -- A2A --> assistant
