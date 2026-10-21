@@ -17,6 +17,49 @@ class Skill:
     description: str
 
 
+EXTRA_SKILLS_ENV = "EXTRA_SKILLS"
+
+
+@dataclass(frozen=True)
+class ExtraSkill:
+    skill: Skill
+    guidance: str  # added to the worker's instructions while the skill is on
+
+
+# Skills a worker can gain without a new image. Turning one on changes both the
+# worker's AgentCard and what it does, the way a new release of the agent would.
+EXTRA_SKILL_CATALOG: dict[str, ExtraSkill] = {
+    "price-comparison": ExtraSkill(
+        Skill(
+            "price-comparison",
+            "Price comparison",
+            "Compares the options it finds and names the cheapest, with how much it saves",
+        ),
+        "When asked to compare prices or find the cheapest option, name the cheapest option "
+        "and say how much it saves compared with the others.",
+    ),
+}
+
+
+def enabled_extra_skills(raw: str) -> tuple[ExtraSkill, ...]:
+    """Parse a comma-separated list of skill ids, e.g. "price-comparison"."""
+    ids = [part.strip() for part in raw.split(",") if part.strip()]
+    unknown = [i for i in ids if i not in EXTRA_SKILL_CATALOG]
+    if unknown:
+        raise ValueError(f"unknown extra skill {unknown}; available: {sorted(EXTRA_SKILL_CATALOG)}")
+    return tuple(EXTRA_SKILL_CATALOG[i] for i in ids)
+
+
+def extra_skills(raw: str) -> tuple[Skill, ...]:
+    """The AgentCard skills for the enabled extra skills."""
+    return tuple(e.skill for e in enabled_extra_skills(raw))
+
+
+def with_extra_skills(instruction: str, raw: str) -> str:
+    """`instruction`, plus the guidance for each enabled extra skill."""
+    return " ".join([instruction, *(e.guidance for e in enabled_extra_skills(raw))])
+
+
 @dataclass(frozen=True)
 class WorkerSpec:
     description: str

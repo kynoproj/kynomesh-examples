@@ -15,14 +15,14 @@ flowchart LR
     end
 ```
 
-| File                                   | Role                                                                                           |
-| -------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| `src/travel/discovery.py`              | `client.peers()` + `client.resolve_agent_card()` → `WorkerInfo` per peer. No names.            |
-| `src/travel/supervisor.py`             | Builds one `ask_<peer>` tool per worker, and the prompt's worker list, from those cards.       |
-| `src/travel/workers.py`                | The roles this image _can_ run: `flights`, `hotels`, `weather` (stub tools, no external APIs). |
-| `src/travel/main.py`                   | `--role planner` or a worker role. The manifest decides which workers exist.                   |
-| `manifests/agentset.yaml`              | Planner + `flights` + `hotels`, with `driftReload` on.                                         |
-| `manifests/agentset-with-weather.yaml` | The same plus `weather`.                                                                       |
+| File                                   | Role                                                                                                                              |
+| -------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `src/travel/discovery.py`              | `client.peers()` + `client.resolve_agent_card()` → `WorkerInfo` per peer. No names.                                               |
+| `src/travel/supervisor.py`             | Builds one `ask_<peer>` tool per worker, and the prompt's worker list, from those cards.                                          |
+| `src/travel/workers.py`                | The roles this image _can_ run: `flights`, `hotels`, `weather` (stub tools, no external APIs) and the extra skills they can gain. |
+| `src/travel/main.py`                   | `--role planner` or a worker role. The manifest decides which workers exist.                                                      |
+| `manifests/agentset.yaml`              | Planner + `flights` + `hotels`, with `driftReload` on.                                                                            |
+| `manifests/agentset-with-weather.yaml` | The same plus `weather`.                                                                                                          |
 
 ## How the pieces fit
 
@@ -99,8 +99,10 @@ goes back to two workers.
 
 ## 4. Change a worker's card: drift reload
 
-The workers read an optional `EXTRA_SKILLS` env var that adds skills to their
-card. It stands in for shipping a new version of an agent that gained a skill.
+The workers read an optional `EXTRA_SKILLS` env var that turns on extra skills.
+`price-comparison` teaches a worker to compare the options it finds and name the
+cheapest one. It appears on the worker's card and changes how the worker
+answers, like a new release of an agent that gained a skill.
 
 ```shell
 kubectl patch agentset langgraph-travel --type=json -p='[
@@ -123,6 +125,14 @@ kubectl get pods -w                    # the planner restarts after a few minute
 
 Check the planner's pod age to confirm the restart. For the mechanism, see the
 [AgentCard drift detection spec](https://kyno.sh/stable/development/specifications/agentcard-drift-reload/).
+
+Then ask for a comparison. The planner's `ask_hotels` tool now advertises the
+skill, and the `hotels` worker acts on it:
+
+```shell
+a2acli -k -u https://localhost:8490 --override-host=localhost:8490 \
+  send 'What is the cheapest hotel in Tokyo, and how much does it save?'
+```
 
 Clean up with `make delete`.
 

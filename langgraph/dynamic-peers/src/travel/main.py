@@ -22,7 +22,7 @@ from travel.cards import supervisor_card, worker_card
 from travel.discovery import discover_workers
 from travel.executor import LangGraphExecutor
 from travel.peers import ask_peer
-from travel.workers import WORKERS
+from travel.workers import EXTRA_SKILLS_ENV, WORKERS, with_extra_skills
 
 logging.basicConfig(level=logging.INFO)
 _logger = logging.getLogger("travel")
@@ -39,7 +39,8 @@ async def build_supervisor_agent() -> tuple[object, AgentCard]:
 
 def build_worker_agent(role: str) -> tuple[object, AgentCard]:
     spec = WORKERS[role]
-    graph = create_agent(supervisor_module.build_llm(), list(spec.tools), system_prompt=spec.prompt)
+    prompt = with_extra_skills(spec.prompt, os.getenv(EXTRA_SKILLS_ENV, ""))
+    graph = create_agent(supervisor_module.build_llm(), list(spec.tools), system_prompt=prompt)
     return graph, worker_card(role)
 
 
