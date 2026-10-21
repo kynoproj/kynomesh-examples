@@ -26,6 +26,10 @@ flowchart LR
 workers see nobody. Kynomesh derives that peer list from the AgentSet, which is
 why `peer_client("researcher")` works in the supervisor and nowhere else.
 
+A failing worker (for example one that is still starting) doesn't fail the
+request: the supervisor's tool returns the error to the model, so it can answer
+around it.
+
 ## Prerequisites
 
 - Python 3.10+ and [uv](https://docs.astral.sh/uv/)

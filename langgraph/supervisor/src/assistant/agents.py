@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import os
 from typing import Awaitable, Callable
 
@@ -11,6 +12,8 @@ from langchain_core.tools import BaseTool, tool
 from langchain_openai import ChatOpenAI
 
 from assistant.tools import CALCULATOR_TOOLS, RESEARCHER_TOOLS
+
+_logger = logging.getLogger(__name__)
 
 DEFAULT_MODEL = "gpt-4o-mini"
 
@@ -45,17 +48,29 @@ def build_calculator(llm: BaseChatModel):
 
 
 def peer_tools(ask_peer: AskPeer) -> list[BaseTool]:
-    """Tools that delegate to the worker agents over A2A."""
+    """Tools that delegate to the worker agents over A2A.
+
+    A failing worker (for example one that is still starting) comes back to the
+    model as an error string, so it can answer around it instead of the whole
+    request failing.
+    """
+
+    async def delegate(worker: str, request: str) -> str:
+        try:
+            return await ask_peer(worker, request)
+        except Exception as e:
+            _logger.exception("worker %r failed", worker)
+            return f"Error: worker {worker!r} failed: {e}"
 
     @tool
     async def ask_researcher(question: str) -> str:
         """Ask the researcher worker a factual question."""
-        return await ask_peer("researcher", question)
+        return await delegate("researcher", question)
 
     @tool
     async def ask_calculator(problem: str) -> str:
         """Ask the calculator worker to solve an arithmetic problem."""
-        return await ask_peer("calculator", problem)
+        return await delegate("calculator", problem)
 
     return [ask_researcher, ask_calculator]
 

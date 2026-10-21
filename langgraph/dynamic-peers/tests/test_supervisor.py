@@ -56,3 +56,18 @@ async def test_supervisor_with_no_workers_still_answers():
     )
 
     assert result["messages"][-1].content == "I have no workers."
+
+
+async def test_failed_worker_is_reported_to_the_model_not_raised():
+    ask_peer = AsyncMock(side_effect=ConnectionError("worker not up yet"))
+    llm = ScriptedChatModel(
+        responses=[tool_call("ask_flights", request="SFO to Tokyo"), AIMessage(content="Flights are unavailable.")]
+    )
+
+    result = await build_supervisor(llm, (FLIGHTS, HOTELS), ask_peer).ainvoke(
+        {"messages": [{"role": "user", "content": "flights?"}]}
+    )
+
+    assert result["messages"][-1].content == "Flights are unavailable."
+    tool_message = next(m for m in result["messages"] if m.type == "tool")
+    assert tool_message.content == "Error: worker 'flights' failed: worker not up yet"

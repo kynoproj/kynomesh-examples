@@ -59,3 +59,21 @@ async def test_calculator_uses_arithmetic_tool():
 
     assert result["messages"][-1].content == "204"
     assert any(str(m.content) == "204.0" for m in result["messages"][:-1])
+
+
+async def test_failed_worker_is_reported_to_the_model_not_raised():
+    ask_peer = AsyncMock(side_effect=ConnectionError("worker not up yet"))
+    llm = ScriptedChatModel(
+        responses=[
+            tool_call("ask_calculator", problem="1+1"),
+            AIMessage(content="The calculator is unavailable."),
+        ]
+    )
+
+    result = await build_supervisor(llm, ask_peer).ainvoke(
+        {"messages": [{"role": "user", "content": "1+1?"}]}
+    )
+
+    assert result["messages"][-1].content == "The calculator is unavailable."
+    tool_message = next(m for m in result["messages"] if m.type == "tool")
+    assert tool_message.content == "Error: worker 'calculator' failed: worker not up yet"

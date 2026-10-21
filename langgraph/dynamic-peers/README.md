@@ -43,6 +43,8 @@ flowchart LR
   it. Discovery retries each worker for about a minute. If one is still
   unreachable, the supervisor exits with an error and Kubernetes restarts the
   pod, which tries again. The supervisor never serves with a worker missing.
+- **A failing worker doesn't fail the request.** The supervisor's tool returns
+  the error to the model, so it can answer around it.
 
 ## Prerequisites
 

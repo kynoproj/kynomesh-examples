@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import os
 import re
 from typing import Awaitable, Callable
@@ -12,6 +13,8 @@ from langchain_core.tools import BaseTool, StructuredTool
 from langchain_openai import ChatOpenAI
 
 from travel.discovery import WorkerInfo
+
+_logger = logging.getLogger(__name__)
 
 DEFAULT_MODEL = "gpt-4o-mini"
 
@@ -49,9 +52,19 @@ def build_prompt(workers: tuple[WorkerInfo, ...]) -> str:
 
 
 def peer_tools(workers: tuple[WorkerInfo, ...], ask_peer: AskPeer) -> list[BaseTool]:
+    """One tool per worker; each delegates to that worker over A2A.
+
+    A failing worker comes back to the model as an error string, so it can answer
+    around it instead of the whole request failing.
+    """
+
     def make(worker: WorkerInfo) -> BaseTool:
         async def delegate(request: str) -> str:
-            return await ask_peer(worker.name, request)
+            try:
+                return await ask_peer(worker.name, request)
+            except Exception as e:
+                _logger.exception("worker %r failed", worker.name)
+                return f"Error: worker {worker.name!r} failed: {e}"
 
         return StructuredTool.from_function(
             coroutine=delegate,
