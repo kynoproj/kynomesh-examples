@@ -1,7 +1,7 @@
 # Travel planner with a mixed fleet: base set.
 #
-# The supervisor and `hotels` are Claude Agent SDK agents (image claude-travel);
-# `flights` is a LangGraph agent (image langgraph-travel). The supervisor
+# The planner and `hotels` are Claude Agent SDK agents (image claude-travel);
+# `flights` is a LangGraph agent (image langgraph-travel). The planner
 # discovers all of them the same way: it only sees AgentCards and A2A endpoints.
 #
 # Build the images first (make build), then create both secrets (see README):
@@ -13,15 +13,15 @@ metadata:
   name: mixed-travel
 spec:
   pattern: Supervisor
-  entry: supervisor
+  entry: planner
   driftReload:
     enabled: true
   agents:
-    - name: supervisor
+    - name: planner
       container:
         image: claude-travel:latest
         imagePullPolicy: IfNotPresent
-        args: ["--role", "supervisor"]
+        args: ["--role", "planner"]
         env:
           - name: ANTHROPIC_API_KEY
             valueFrom:

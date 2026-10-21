@@ -100,7 +100,7 @@ def peer_tools(ask_peer: AskPeer) -> list[BaseTool]:
 def build_supervisor(ask_peer: AskPeer, llm: LLM | None = None) -> Agent:
     return _agent(
         llm,
-        role="Supervisor",
+        role="Assistant",
         goal="Answer questions by delegating to your workers",
         backstory=(
             "You have two workers: the researcher (facts) and the calculator (arithmetic). "

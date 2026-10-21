@@ -6,10 +6,10 @@ through Kynomesh.
 
 ```mermaid
 flowchart LR
-    client([client]) -- A2A --> supervisor
+    client([client]) -- A2A --> assistant
     subgraph AgentSet["AgentSet: adk-supervisor (pattern: Supervisor)"]
-        supervisor -- A2A --> researcher["researcher (fact lookup)"]
-        supervisor -- A2A --> calculator["calculator (arithmetic)"]
+        assistant -- A2A --> researcher["researcher (fact lookup)"]
+        assistant -- A2A --> calculator["calculator (arithmetic)"]
     end
 ```
 
@@ -17,20 +17,20 @@ ADK has its own A2A support, but this example does not use it. Kynomesh's Python
 SDK runs each agent's A2A server and makes the calls between agents; ADK only
 sees ordinary function tools.
 
-| File                            | Role                                                                                                                |
-| ------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| `src/adk_assistant/agents.py`   | The three ADK agents and `run_agent`. The supervisor's tools (`ask_researcher`, `ask_calculator`) call the workers. |
-| `src/adk_assistant/peers.py`    | `ask_peer`: calls a peer with `kynomesh.client.peer_client`. No URLs anywhere.                                      |
-| `src/adk_assistant/tools.py`    | Worker tools: a small knowledge-base lookup and `add`/`multiply`/`divide`.                                          |
-| `src/adk_assistant/executor.py` | Bridges an A2A message to `run_agent` and back.                                                                     |
-| `src/adk_assistant/main.py`     | Serves one role via `kynomesh.server.start`; the role comes from `--role`.                                          |
-| `manifests/agentset.yaml`       | One image, three agents. `pattern: Supervisor`, `entry: supervisor`.                                                |
+| File                            | Role                                                                                                               |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `src/adk_assistant/agents.py`   | The three ADK agents and `run_agent`. The assistant's tools (`ask_researcher`, `ask_calculator`) call the workers. |
+| `src/adk_assistant/peers.py`    | `ask_peer`: calls a peer with `kynomesh.client.peer_client`. No URLs anywhere.                                     |
+| `src/adk_assistant/tools.py`    | Worker tools: a small knowledge-base lookup and `add`/`multiply`/`divide`.                                         |
+| `src/adk_assistant/executor.py` | Bridges an A2A message to `run_agent` and back.                                                                    |
+| `src/adk_assistant/main.py`     | Serves one role via `kynomesh.server.start`; the role comes from `--role`.                                         |
+| `manifests/agentset.yaml`       | One image, three agents. `pattern: Supervisor`, `entry: assistant`.                                                |
 
 `pattern: Supervisor` makes the entry agent see every other agent, while the
 workers see nobody. Kynomesh derives that peer list from the AgentSet, which is
-why `peer_client("researcher")` works in the supervisor and nowhere else.
+why `peer_client("researcher")` works in the assistant and nowhere else.
 
-Here the workers are named in the supervisor's code. To discover them from
+Here the workers are named in the assistant's code. To discover them from
 Kynomesh instead, see [dynamic-peers](../dynamic-peers).
 
 ## What to know about ADK
@@ -40,8 +40,8 @@ Kynomesh instead, see [dynamic-peers](../dynamic-peers).
 - Tools are plain functions. ADK takes the schema from the type hints and the
   description from the docstring, so describe every argument there.
 - Each request runs in a fresh in-memory session, so requests are independent.
-- A failing worker comes back to the supervisor's model as an error result, so
-  it can answer around it instead of the run crashing.
+- A failing worker comes back to the assistant's model as an error result, so it
+  can answer around it instead of the run crashing.
 
 ## Prerequisites
 
@@ -61,7 +61,7 @@ uv run pytest    # the model and the peer calls are mocked
 ```
 
 Running the three agents locally needs the Kynomesh topology file that only
-exists in-cluster, so the supervisor's peer calls work on Kynomesh. A worker
+exists in-cluster, so the assistant's peer calls work on Kynomesh. A worker
 alone does run locally:
 
 ```shell

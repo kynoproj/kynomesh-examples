@@ -24,7 +24,7 @@ async def test_supervisor_agent_is_built_from_discovered_workers(caplog):
     ):
         graph, card = await main.build_supervisor_agent()
 
-    assert card.name == "Travel Supervisor"
+    assert card.name == "Travel Planner"
     assert "discovered workers: ['flights']" in caplog.text
     result = await graph.ainvoke({"messages": [{"role": "user", "content": "hi"}]})
     assert result["messages"][-1].content == "ok"
@@ -49,7 +49,7 @@ def test_missing_api_key_exits_with_message(monkeypatch):
 
 def test_supervisor_outside_kynomesh_exits_with_message(monkeypatch):
     monkeypatch.setenv("OPENAI_API_KEY", "x")
-    monkeypatch.setattr(sys, "argv", ["travel", "--role", "supervisor"])
+    monkeypatch.setattr(sys, "argv", ["travel", "--role", "planner"])
 
     async def no_topology(role):
         raise client.TopologyNotAvailableError

@@ -1,10 +1,10 @@
-# Travel planner, base set: a supervisor that discovers its workers, plus flights and hotels.
+# Travel planner, base set: a planner that discovers its workers, plus flights and hotels.
 #
-# One image runs every agent; --role picks which. The supervisor's code never
+# One image runs every agent; --role picks which. The planner's code never
 # names a worker: it asks Kynomesh for its peers at startup.
 #
 # driftReload is on fleet-wide, so when a worker's AgentCard changes Kynomesh
-# restarts the supervisor and it re-reads the card.
+# restarts the planner and it re-reads the card.
 #
 # Create the secret first (see README):
 #   kubectl create secret generic openai-api-key --from-literal=OPENAI_API_KEY=...
@@ -14,15 +14,15 @@ metadata:
   name: langgraph-travel
 spec:
   pattern: Supervisor
-  entry: supervisor
+  entry: planner
   driftReload:
     enabled: true
   agents:
-    - name: supervisor
+    - name: planner
       container:
         image: langgraph-travel:latest
         imagePullPolicy: IfNotPresent
-        args: ["--role", "supervisor"]
+        args: ["--role", "planner"]
         env: &openai-env
           - name: OPENAI_API_KEY
             valueFrom:

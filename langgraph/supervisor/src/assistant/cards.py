@@ -10,15 +10,15 @@ from a2a.types.a2a_pb2 import (
 )
 from a2a.utils.constants import PROTOCOL_VERSION_CURRENT, TransportProtocol
 
-ROLES = ("supervisor", "researcher", "calculator")
+ROLES = ("assistant", "researcher", "calculator")
 
 _DESCRIPTIONS = {
-    "supervisor": ("Supervisor", "Delegates questions to the researcher and calculator agents"),
+    "assistant": ("Assistant", "Delegates questions to the researcher and calculator agents"),
     "researcher": ("Researcher", "Answers factual questions from a small knowledge base"),
     "calculator": ("Calculator", "Solves arithmetic problems"),
 }
 _EXAMPLES = {
-    "supervisor": ["What is the population of France multiplied by 3?"],
+    "assistant": ["What is the population of France multiplied by 3?"],
     "researcher": ["Tell me about Japan"],
     "calculator": ["What is 68 * 3?"],
 }

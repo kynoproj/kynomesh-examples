@@ -1,11 +1,11 @@
 # Travel planner (Google ADK) with a weather worker added. Compared with agentset.yaml, only this
-# manifest changes: the supervisor's code and image are identical.
+# manifest changes: the planner's code and image are identical.
 #
-# One image runs every agent; --role picks which. The supervisor's code never
+# One image runs every agent; --role picks which. The planner's code never
 # names a worker: it asks Kynomesh for its peers at startup.
 #
 # driftReload is on fleet-wide, so when a worker's AgentCard changes Kynomesh
-# restarts the supervisor and it re-reads the card.
+# restarts the planner and it re-reads the card.
 #
 # Create the secret first (see README):
 #   kubectl create secret generic google-api-key --from-literal=GOOGLE_API_KEY=...
@@ -15,15 +15,15 @@ metadata:
   name: adk-travel
 spec:
   pattern: Supervisor
-  entry: supervisor
+  entry: planner
   driftReload:
     enabled: true
   agents:
-    - name: supervisor
+    - name: planner
       container:
         image: adk-travel:latest
         imagePullPolicy: IfNotPresent
-        args: ["--role", "supervisor"]
+        args: ["--role", "planner"]
         env: &google-env
           - name: GOOGLE_API_KEY
             valueFrom:

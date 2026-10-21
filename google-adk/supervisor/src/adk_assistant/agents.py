@@ -93,7 +93,7 @@ def peer_tools(ask_peer: AskPeer) -> list[Callable]:
 
 
 def build_supervisor(ask_peer: AskPeer) -> Runner:
-    return build_runner(name="supervisor", instruction=SUPERVISOR_INSTRUCTION, tools=peer_tools(ask_peer))
+    return build_runner(name="assistant", instruction=SUPERVISOR_INSTRUCTION, tools=peer_tools(ask_peer))
 
 
 async def run_agent(prompt: str, *, runner: Runner) -> str:

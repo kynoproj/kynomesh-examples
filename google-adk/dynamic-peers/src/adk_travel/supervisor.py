@@ -68,7 +68,7 @@ def peer_tools(workers: tuple[WorkerInfo, ...], ask_peer: AskPeer) -> list[Calla
 
 def build_supervisor_runner(workers: tuple[WorkerInfo, ...], ask_peer: AskPeer) -> Runner:
     return build_runner(
-        name="supervisor",
+        name="planner",
         instruction=build_instruction(workers),
         tools=peer_tools(workers, ask_peer),
     )
